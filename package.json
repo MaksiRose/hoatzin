@@ -1,0 +1,31 @@
+{
+	"name": "hoatzin",
+	"version": "1.0.0",
+	"description": "Type-safe object data modeling library for JSON files",
+	"main": "lib/index.js",
+	"scripts": {
+		"build": "tsc"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MaksiRose/hoatzin.git"
+	},
+	"keywords": [
+		"database",
+		"JSON",
+		"data modeling"
+	],
+	"author": "Maksi Rose",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/MaksiRose/hoatzin/issues"
+	},
+	"homepage": "https://github.com/MaksiRose/hoatzin#readme",
+	"devDependencies": {
+		"@types/node": "^18.7.21",
+		"typescript": "^4.8.3"
+	},
+	"dependencies": {
+		"fs": "^0.0.1-security"
+	}
+}
