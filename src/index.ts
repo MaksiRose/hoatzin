@@ -1,4 +1,5 @@
-import { readdir, readFile, unlink, writeFile } from 'fs/promises';
+import { writeFileSync } from 'fs';
+import { readdir, readFile , unlink  } from 'fs/promises';
 
 interface IDObject {
 	_id: string | number;
@@ -85,10 +86,10 @@ export class Model<T extends IDObject> {
 	schema: Schema<T>;
 	find: (filter?: (value: T) => boolean) => Promise<Array<T>>;
 	findOne: (filter: (value: T) => boolean) => Promise<T>;
-	create: (dataObject: T, options?: { log?: boolean; }) => Promise<T>;
+	create: (dataObject: T, options?: { log?: boolean; }) => T;
 	delete: (dataObject: T, options?: { log?: boolean; }) => Promise<void>;
 	findOneAndDelete: (filter: (value: T) => boolean, options?: { log?: boolean; }) => Promise<void>;
-	update: (dataObject: T, updateFunction: (value: T) => void, options?: { log?: boolean; }) => Promise<T>;
+	update: (dataObject: T, updateFunction: (value: T) => void, options?: { log?: boolean; }) => T;
 	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options?: { log?: boolean; }) => Promise<T>;
 
 	/**
@@ -129,7 +130,7 @@ export class Model<T extends IDObject> {
 		}
 
 		/** Overwrites a file in the database. **Caution:** This could make unexpected changes to the file! */
-		async function save(updateObject: T): Promise<void> {
+		function save(updateObject: T): void {
 
 			let dataObject = JSON.parse(JSON.stringify(updateObject)) as T;
 			dataObject = cleanUp(dataObject);
@@ -140,7 +141,7 @@ export class Model<T extends IDObject> {
 				throw new TypeError('Type of received object is not assignable to type of database.');
 			}
 
-			await writeFile(`${path}/${updateObject._id}.json`, JSON.stringify(updateObject, null, '\t'));
+			writeFileSync(`${path}/${updateObject._id}.json`, JSON.stringify(updateObject, null, '\t'));
 		};
 
 		/** Searches for all objects that meet the filter, and returns an array of them. */
@@ -175,12 +176,12 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Creates a new database entry. */
-		this.create = async (
+		this.create = (
 			dataObject: T,
 			options: { log?: boolean; } = {},
-		): Promise<T> => {
+		): T => {
 
-			await save(dataObject);
+			save(dataObject);
 
 			if (options.log === undefined ? log.createFile : options.log) { console.log('Created File: ', dataObject._id); }
 			return dataObject;
@@ -211,11 +212,11 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Updates the given object based on its id. */
-		this.update = async (
+		this.update = (
 			dataObject: T,
 			updateFunction: (value: T) => void,
 			options: { log?: boolean; } = {},
-		): Promise<T> => {
+		): T => {
 
 			const newDataObject = JSON.parse(JSON.stringify(dataObject)) as T;
 			updateFunction(newDataObject);
@@ -229,9 +230,9 @@ export class Model<T extends IDObject> {
 			if (JSON.stringify(updateObject) !== JSON.stringify(newDataObject)) { throw new Error('A locked property has been changed'); }
 
 
-			if (options.log === undefined ? log.changeFile : options.log) { createLog(createLogArray(dataObject, newDataObject, '')); }
+			save(newDataObject);
 
-			await save(newDataObject);
+			if (options.log === undefined ? log.changeFile : options.log) { createLog(createLogArray(dataObject, newDataObject, '')); }
 
 			return newDataObject;
 
@@ -319,7 +320,7 @@ export class Model<T extends IDObject> {
 					console.log(`\x1b[32m${dataObject?._id}\x1b[0m${path} changed from \x1b[33m${oldValue} \x1b[0mto \x1b[33m${newValue} \x1b[0mat \x1b[3m${new Date().toLocaleString()} \x1b[0m`);
 				}
 			}
-		}
+		};
 
 		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
 		this.findOneAndUpdate = async (
@@ -329,7 +330,7 @@ export class Model<T extends IDObject> {
 		): Promise<T> => {
 
 			const dataObject = await this.findOne(filter);
-			return await this.update(dataObject, updateFunction, options)
+			return this.update(dataObject, updateFunction, options);
 		};
 
 
