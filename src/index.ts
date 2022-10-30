@@ -85,9 +85,9 @@ export class Model<T extends IDObject> {
 	schema: Schema<T>;
 	find: (filter?: (value: T) => boolean) => Array<T>;
 	findOne: (filter: (value: T) => boolean) => T;
-	create: (dataObject: T) => T;
-	findOneAndDelete: (filter: (value: T) => boolean) => void;
-	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void) => T;
+	create: (dataObject: T, options: { log?: boolean }) => T;
+	findOneAndDelete: (filter: (value: T) => boolean, options: { log?: boolean }) => void;
+	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options: { log?: boolean }) => T;
 
 	/**
 	 * 
@@ -170,28 +170,38 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Creates a new database entry. */
-		this.create = (dataObject: T): T => {
+		this.create = (
+			dataObject: T,
+			options: {log?: boolean} = {},
+		): T => {
 
 			save(dataObject);
 
-			if (log.createFile) { console.log('Created File: ', dataObject._id); }
+			if (options.log === undefined ? log.createFile : options.log) { console.log('Created File: ', dataObject._id); }
 			return dataObject;
 		};
 
 		/** Searches for an object that meets the filter, and deletes it. If several objects meet the requirement, the first that is found is deleted. */
-		this.findOneAndDelete = (filter: (value: T) => boolean): void => {
+		this.findOneAndDelete = (
+			filter: (value: T) => boolean,
+			options: {log?: boolean} = {},
+		): void => {
 
 			const dataObject = this.findOne(filter);
 
 			unlinkSync(`${path}/${dataObject._id}.json`);
 
-			if (log.deleteFile) { console.log('Deleted File: ', dataObject._id); }
+			if (options.log === undefined ? log.deleteFile : options.log) { console.log('Deleted File: ', dataObject._id); }
 
 			return;
 		};
 
 		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
-		this.findOneAndUpdate = (filter: (value: T) => boolean, updateFunction: (value: T) => void): T => {
+		this.findOneAndUpdate = (
+			filter: (value: T) => boolean,
+			updateFunction: (value: T) => void,
+			options: {log?: boolean} = {},
+		): T => {
 
 			const dataObject = this.findOne(filter);
 			const newDataObject = JSON.parse(JSON.stringify(dataObject)) as T;
@@ -206,7 +216,7 @@ export class Model<T extends IDObject> {
 			if (JSON.stringify(updateObject) !== JSON.stringify(newDataObject)) { throw new Error('A locked property has been changed'); }
 
 
-			createLog(createLogArray(dataObject, newDataObject, ''));
+			if (options.log === undefined ? log.changeFile : options.log) { createLog(createLogArray(dataObject, newDataObject, '')); }
 
 			save(newDataObject);
 
@@ -293,7 +303,7 @@ export class Model<T extends IDObject> {
 
 				for (const { path, oldValue, newValue } of logArray) {
 
-					if (log.changeFile) { console.log(`\x1b[32m${dataObject?._id}\x1b[0m${path} changed from \x1b[33m${oldValue} \x1b[0mto \x1b[33m${newValue} \x1b[0mat \x1b[3m${new Date().toLocaleString()} \x1b[0m`); }
+					console.log(`\x1b[32m${dataObject?._id}\x1b[0m${path} changed from \x1b[33m${oldValue} \x1b[0mto \x1b[33m${newValue} \x1b[0mat \x1b[3m${new Date().toLocaleString()} \x1b[0m`);
 				}
 			}
 		};

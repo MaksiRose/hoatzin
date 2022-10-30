@@ -89,7 +89,8 @@ const postSchema = new Model<PostSchema>(
     p => p._id === post._id,
     p => {
       p.tags.push('animals')
-    }
+    },
+	{ log: false } // for Model#findOneAndUpdate, Model#findOneAndDelete and Model#create, there is an optional "options" object with a log property. If it is set, it overrides the setting set when the model is created for the call
   );
 
   const goodRatedPosts = postSchema.find(p => p.rating >= 4)
