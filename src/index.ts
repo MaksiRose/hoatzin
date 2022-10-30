@@ -85,11 +85,11 @@ export class Model<T extends IDObject> {
 	schema: Schema<T>;
 	find: (filter?: (value: T) => boolean) => Promise<Array<T>>;
 	findOne: (filter: (value: T) => boolean) => Promise<T>;
-	create: (dataObject: T, options: { log?: boolean; }) => Promise<T>;
-	delete: (dataObject: T, options: { log?: boolean; }) => Promise<void>;
-	findOneAndDelete: (filter: (value: T) => boolean, options: { log?: boolean; }) => Promise<void>;
-	update: (dataObject: T, updateFunction: (value: T) => void, options: { log?: boolean; }) => Promise<T>;
-	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options: { log?: boolean; }) => Promise<T>;
+	create: (dataObject: T, options?: { log?: boolean; }) => Promise<T>;
+	delete: (dataObject: T, options?: { log?: boolean; }) => Promise<void>;
+	findOneAndDelete: (filter: (value: T) => boolean, options?: { log?: boolean; }) => Promise<void>;
+	update: (dataObject: T, updateFunction: (value: T) => void, options?: { log?: boolean; }) => Promise<T>;
+	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options?: { log?: boolean; }) => Promise<T>;
 
 	/**
 	 * 
