@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import { readdir, readFile, unlink, writeFile } from 'fs/promises';
 
 interface IDObject {
 	_id: string | number;
@@ -73,8 +73,8 @@ interface ObjectSchema<T> {
 type LogSettings = {
 	createFile: boolean,
 	deleteFile: boolean,
-	changeFile: boolean
-}
+	changeFile: boolean;
+};
 
 type PrimitiveSchema = StringSchema | OptionalStringSchema | NumberSchema | OptionalNumberSchema | StringNumberSchema | BooleanSchema;
 type AnySchema = PrimitiveSchema | ArraySchema<any> | MapSchema<any> | ObjectSchema<any>;
@@ -83,11 +83,13 @@ export class Model<T extends IDObject> {
 
 	path: string;
 	schema: Schema<T>;
-	find: (filter?: (value: T) => boolean) => Array<T>;
-	findOne: (filter: (value: T) => boolean) => T;
-	create: (dataObject: T, options: { log?: boolean }) => T;
-	findOneAndDelete: (filter: (value: T) => boolean, options: { log?: boolean }) => void;
-	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options: { log?: boolean }) => T;
+	find: (filter?: (value: T) => boolean) => Promise<Array<T>>;
+	findOne: (filter: (value: T) => boolean) => Promise<T>;
+	create: (dataObject: T, options: { log?: boolean; }) => Promise<T>;
+	delete: (dataObject: T, options: { log?: boolean; }) => Promise<void>;
+	findOneAndDelete: (filter: (value: T) => boolean, options: { log?: boolean; }) => Promise<void>;
+	update: (dataObject: T, updateFunction: (value: T) => void, options: { log?: boolean; }) => Promise<T>;
+	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options: { log?: boolean; }) => Promise<T>;
 
 	/**
 	 * 
@@ -104,11 +106,11 @@ export class Model<T extends IDObject> {
 			createFile: (typeof createLog === 'boolean' ? createLog : createLog?.createFile) ?? false,
 			deleteFile: (typeof createLog === 'boolean' ? createLog : createLog?.deleteFile) ?? false,
 			changeFile: (typeof createLog === 'boolean' ? createLog : createLog?.changeFile) ?? false,
-		}
-		const strict: boolean = isStrict ?? true
+		};
+		const strict: boolean = isStrict ?? true;
 
-		/** Updates the information of a file to be accurate to the schema. */
-		function update(updateObject: T): T {
+		/** Cleans up the information of a file to be accurate to the schema. */
+		function cleanUp(updateObject: T): T {
 
 			/* Add / Update existing keys */
 			for (const [key, value] of Object.entries(schema)) {
@@ -123,14 +125,14 @@ export class Model<T extends IDObject> {
 				if (!keys.includes(String(key))) { delete updateObject[key]; }
 			}
 
-			return updateObject
+			return updateObject;
 		}
 
 		/** Overwrites a file in the database. **Caution:** This could make unexpected changes to the file! */
-		function save(updateObject: T): void {
+		async function save(updateObject: T): Promise<void> {
 
 			let dataObject = JSON.parse(JSON.stringify(updateObject)) as T;
-			dataObject = update(dataObject)
+			dataObject = cleanUp(dataObject);
 
 			if (strict === true && JSON.stringify(updateObject) !== JSON.stringify(dataObject)) {
 
@@ -138,17 +140,20 @@ export class Model<T extends IDObject> {
 				throw new TypeError('Type of received object is not assignable to type of database.');
 			}
 
-			writeFileSync(`${path}/${updateObject._id}.json`, JSON.stringify(updateObject, null, '\t'));
+			await writeFile(`${path}/${updateObject._id}.json`, JSON.stringify(updateObject, null, '\t'));
 		};
 
 		/** Searches for all objects that meet the filter, and returns an array of them. */
-		this.find = (filter?: (value: T) => boolean): Array<T> => {
+		this.find = async (filter?: (value: T) => boolean): Promise<Array<T>> => {
 
-			const allFileNames = readdirSync(path).filter(f => f.endsWith('.json'));
-			return allFileNames
-				.map(fileName => {
-					return update(JSON.parse(readFileSync(`${path}/${fileName}`, 'utf-8')) as T);
-				})
+			const allFileNames = (await readdir(path)).filter(f => f.endsWith('.json'));
+			const returnedFiles: T[] = [];
+
+			for (const fileName of allFileNames) {
+
+				returnedFiles.push(cleanUp(JSON.parse(await readFile(`${path}/${fileName}`, 'utf-8')) as T));
+			}
+			return returnedFiles
 				.filter(file => {
 					if (typeof filter === 'function') { return filter(file); }
 					return true;
@@ -156,58 +161,66 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Searches for an object that meets the filter, and returns it. If several objects meet the requirement, the first that is found is returned. */
-		this.findOne = (filter: (value: T) => boolean): T => {
+		this.findOne = async (filter: (value: T) => boolean): Promise<T> => {
 
-			const allFileNames = readdirSync(path).filter(f => f.endsWith('.json'));
+			const allFileNames = (await readdir(path)).filter(f => f.endsWith('.json'));
 
 			for (const fileName of allFileNames) {
 
-				const file = update(JSON.parse(readFileSync(`${path}/${fileName}`, 'utf-8')) as T)
-				if (typeof filter === 'function' && filter(file)) { return file }
+				const file = cleanUp(JSON.parse(await readFile(`${path}/${fileName}`, 'utf-8')) as T);
+				if (typeof filter === 'function' && filter(file)) { return file; }
 			}
 
 			throw new Error('Could not find a document with the given filter.');
 		};
 
 		/** Creates a new database entry. */
-		this.create = (
+		this.create = async (
 			dataObject: T,
-			options: {log?: boolean} = {},
-		): T => {
+			options: { log?: boolean; } = {},
+		): Promise<T> => {
 
-			save(dataObject);
+			await save(dataObject);
 
 			if (options.log === undefined ? log.createFile : options.log) { console.log('Created File: ', dataObject._id); }
 			return dataObject;
 		};
 
-		/** Searches for an object that meets the filter, and deletes it. If several objects meet the requirement, the first that is found is deleted. */
-		this.findOneAndDelete = (
-			filter: (value: T) => boolean,
-			options: {log?: boolean} = {},
-		): void => {
+		/** Deletes the given object based on its id. */
+		this.delete = async (
+			dataObject: T,
+			options: { log?: boolean; } = {},
+		): Promise<void> => {
 
-			const dataObject = this.findOne(filter);
-
-			unlinkSync(`${path}/${dataObject._id}.json`);
+			await unlink(`${path}/${dataObject._id}.json`);
 
 			if (options.log === undefined ? log.deleteFile : options.log) { console.log('Deleted File: ', dataObject._id); }
 
 			return;
 		};
 
-		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
-		this.findOneAndUpdate = (
+		/** Searches for an object that meets the filter, and deletes it. If several objects meet the requirement, the first that is found is deleted. */
+		this.findOneAndDelete = async (
 			filter: (value: T) => boolean,
-			updateFunction: (value: T) => void,
-			options: {log?: boolean} = {},
-		): T => {
+			options: { log?: boolean; } = {},
+		): Promise<void> => {
 
-			const dataObject = this.findOne(filter);
+			const dataObject = await this.findOne(filter);
+			await (this.delete(dataObject, options));
+			return;
+		};
+
+		/** Updates the given object based on its id. */
+		this.update = async (
+			dataObject: T,
+			updateFunction: (value: T) => void,
+			options: { log?: boolean; } = {},
+		): Promise<T> => {
+
 			const newDataObject = JSON.parse(JSON.stringify(dataObject)) as T;
 			updateFunction(newDataObject);
-			
-			
+
+
 			let updateObject = JSON.parse(JSON.stringify(newDataObject)) as T;
 			for (const [key, value] of Object.entries(schema)) {
 
@@ -218,7 +231,7 @@ export class Model<T extends IDObject> {
 
 			if (options.log === undefined ? log.changeFile : options.log) { createLog(createLogArray(dataObject, newDataObject, '')); }
 
-			save(newDataObject);
+			await save(newDataObject);
 
 			return newDataObject;
 
@@ -306,14 +319,27 @@ export class Model<T extends IDObject> {
 					console.log(`\x1b[32m${dataObject?._id}\x1b[0m${path} changed from \x1b[33m${oldValue} \x1b[0mto \x1b[33m${newValue} \x1b[0mat \x1b[3m${new Date().toLocaleString()} \x1b[0m`);
 				}
 			}
+		}
+
+		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
+		this.findOneAndUpdate = async (
+			filter: (value: T) => boolean,
+			updateFunction: (value: T) => void,
+			options: { log?: boolean; } = {},
+		): Promise<T> => {
+
+			const dataObject = await this.findOne(filter);
+			return await this.update(dataObject, updateFunction, options)
 		};
 
 
 		/* Update every object in the path to be in line with the schema when the class is called */
-		for (let dataObject of this.find()) {
-			
-			save(update(dataObject));
-		}
+		this.find().then((v) => {
+			for (let dataObject of v) {
+
+				save(cleanUp(dataObject));
+			}
+		});
 	}
 }
 
@@ -427,9 +453,9 @@ function changeLockedBack(
 	value: AnySchema,
 ): Record<string | number | symbol, any> | Array<any> {
 
-	if (isPrimitiveSchema(value) && value.locked === true && obj2[key] !== obj1[key]) { 
-		
-		obj2[key] = obj1[key]
+	if (isPrimitiveSchema(value) && value.locked === true && obj2[key] !== obj1[key]) {
+
+		obj2[key] = obj1[key];
 	}
 	else if (value.type === 'array') {
 
@@ -440,8 +466,8 @@ function changeLockedBack(
 	}
 	else if (value.type === 'map') {
 
-		const obj1keys = Object.keys(obj1[key])
-		const obj2keys = Object.keys(obj2[key])
+		const obj1keys = Object.keys(obj1[key]);
+		const obj2keys = Object.keys(obj2[key]);
 		for (const k of obj1keys.length > 0 ? obj1keys : obj2keys) {
 
 			obj2[key] = changeLockedBack(obj1[key], obj2[key], k, value.of);

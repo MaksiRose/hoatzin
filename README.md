@@ -69,7 +69,7 @@ const postSchema = new Model<PostSchema>(
 	true // This is about whether strict mode is enabled or not. It is optional and set to true by default. Strict mode checks whether the information passed the "create" and "findOneAndUpdate" functions alligns with the schema.
 );
 
-  let post = postSchema.create({
+  postSchema.create({
     _id: '8e76460f-840b-42da-968e-ad66c076ff7c',
     title: 'Hoatzins are great!',
     description: 'We should really talk about how great hoatzins are!',
@@ -83,21 +83,28 @@ const postSchema = new Model<PostSchema>(
     },
     tags: [],
     pinnedPosition: null,
-  });
-
-  post = postSchema.findOneAndUpdate(
-    p => p._id === post._id,
-    p => {
-      p.tags.push('animals')
-    },
-	{ log: false } // for Model#findOneAndUpdate, Model#findOneAndDelete and Model#create, there is an optional "options" object with a log property. If it is set, it overrides the setting set when the model is created for the call
-  );
-
-  const goodRatedPosts = postSchema.find(p => p.rating >= 4)
-
-  postSchema.findOneAndDelete(p => p._id === post._id)
-
-  const nonExistentPost = postSchema.findOne(p => p.title.includes('Hoatzin')) // The post got deleted in the line above, so this will throw an error
+  }).then((post) => {
   
-  console.log({post, goodRatedPosts, nonExistentPost})
+    console.log(post)
+    postSchema.update(
+      post,
+      p => {
+        p.tags.push('animals')
+      },
+  	{ log: false } // for Model#update, Model#findOneAndUpdate, Model#delete, Model#findOneAndDelete and Model#create, there is an optional "options" object with a log property. If it is set, it overrides the setting set when the model is created for the call
+    ).then((updatedPost) => {
+    
+	  console.log(updatedPost)
+       
+	  postSchema.find(p => p.rating >= 4)
+	  .then((goodRatedPosts) => console.log(goodRatedPosts))
+      
+      postSchema.delete(updatedPost)
+      
+      postSchema.findOne(p => p.title.includes('Hoatzin')) // The post got deleted in the line above. It is asynchronous so it might not actually be deleted yet, but if it is, this will throw an error that needs to be caught
+	  .then((nonExistentPost) => console.log(nonExistentPost))
+	  .catch((error) => console.error(error)) 
+    
+	});
+  });
 ```
