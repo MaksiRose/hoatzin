@@ -1,5 +1,4 @@
-import { writeFileSync } from 'fs';
-import { readdir, readFile , unlink  } from 'fs/promises';
+import { writeFileSync, readdirSync, readFileSync, unlinkSync } from 'fs';
 
 interface IDObject {
 	_id: string | number;
@@ -84,13 +83,13 @@ export class Model<T extends IDObject> {
 
 	path: string;
 	schema: Schema<T>;
-	find: (filter?: (value: T) => boolean) => Promise<Array<T>>;
-	findOne: (filter: (value: T) => boolean) => Promise<T>;
+	find: (filter?: (value: T) => boolean) => Array<T>;
+	findOne: (filter: (value: T) => boolean) => T;
 	create: (dataObject: T, options?: { log?: boolean; }) => T;
-	delete: (dataObject: T, options?: { log?: boolean; }) => Promise<void>;
-	findOneAndDelete: (filter: (value: T) => boolean, options?: { log?: boolean; }) => Promise<void>;
+	delete: (dataObject: T, options?: { log?: boolean; }) => void;
+	findOneAndDelete: (filter: (value: T) => boolean, options?: { log?: boolean; }) => void;
 	update: (dataObject: T, updateFunction: (value: T) => void, options?: { log?: boolean; }) => T;
-	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options?: { log?: boolean; }) => Promise<T>;
+	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options?: { log?: boolean; }) => T;
 
 	/**
 	 * 
@@ -145,14 +144,14 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Searches for all objects that meet the filter, and returns an array of them. */
-		this.find = async (filter?: (value: T) => boolean): Promise<Array<T>> => {
+		this.find = (filter?: (value: T) => boolean): Array<T> => {
 
-			const allFileNames = (await readdir(path)).filter(f => f.endsWith('.json'));
+			const allFileNames = readdirSync(path).filter(f => f.endsWith('.json'));
 			const returnedFiles: T[] = [];
 
 			for (const fileName of allFileNames) {
 
-				returnedFiles.push(cleanUp(JSON.parse(await readFile(`${path}/${fileName}`, 'utf-8')) as T));
+				returnedFiles.push(cleanUp(JSON.parse(readFileSync(`${path}/${fileName}`, 'utf-8')) as T));
 			}
 			return returnedFiles
 				.filter(file => {
@@ -162,13 +161,13 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Searches for an object that meets the filter, and returns it. If several objects meet the requirement, the first that is found is returned. */
-		this.findOne = async (filter: (value: T) => boolean): Promise<T> => {
+		this.findOne = (filter: (value: T) => boolean): T => {
 
-			const allFileNames = (await readdir(path)).filter(f => f.endsWith('.json'));
+			const allFileNames = readdirSync(path).filter(f => f.endsWith('.json'));
 
 			for (const fileName of allFileNames) {
 
-				const file = cleanUp(JSON.parse(await readFile(`${path}/${fileName}`, 'utf-8')) as T);
+				const file = cleanUp(JSON.parse(readFileSync(`${path}/${fileName}`, 'utf-8')) as T);
 				if (typeof filter === 'function' && filter(file)) { return file; }
 			}
 
@@ -193,7 +192,7 @@ export class Model<T extends IDObject> {
 			options: { log?: boolean; } = {},
 		): Promise<void> => {
 
-			await unlink(`${path}/${dataObject._id}.json`);
+			unlinkSync(`${path}/${dataObject._id}.json`);
 
 			if (options.log === undefined ? log.deleteFile : options.log) { console.log('Deleted File: ', dataObject._id); }
 
@@ -323,24 +322,22 @@ export class Model<T extends IDObject> {
 		};
 
 		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
-		this.findOneAndUpdate = async (
+		this.findOneAndUpdate = (
 			filter: (value: T) => boolean,
 			updateFunction: (value: T) => void,
 			options: { log?: boolean; } = {},
-		): Promise<T> => {
+		): T => {
 
-			const dataObject = await this.findOne(filter);
+			const dataObject = this.findOne(filter);
 			return this.update(dataObject, updateFunction, options);
 		};
 
 
 		/* Update every object in the path to be in line with the schema when the class is called */
-		this.find().then((v) => {
-			for (let dataObject of v) {
+		for (let dataObject of this.find()) {
 
-				save(cleanUp(dataObject));
-			}
-		});
+			save(cleanUp(dataObject));
+		}
 	}
 }
 

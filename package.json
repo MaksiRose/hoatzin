@@ -1,6 +1,6 @@
 {
 	"name": "hoatzin",
-	"version": "1.3.3",
+	"version": "1.3.4",
 	"description": "Type-safe object data modeling library for JSON files",
 	"main": "lib/index.js",
 	"scripts": {

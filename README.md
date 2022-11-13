@@ -69,42 +69,44 @@ const postSchema = new Model<PostSchema>(
 	true // This is about whether strict mode is enabled or not. It is optional and set to true by default. Strict mode checks whether the information passed the "create" and "findOneAndUpdate" functions alligns with the schema.
 );
 
-  postSchema.create({
-    _id: '8e76460f-840b-42da-968e-ad66c076ff7c',
-    title: 'Hoatzins are great!',
-    description: 'We should really talk about how great hoatzins are!',
-    rating: 5,
-    hidden: true,
-    interactions: {
-      "5083c0e2-8cf7-4be3-ae1e-68b7147981f4": {
-        interactionType: 'rating',
-        body: 5
-      }
-    },
-    tags: [],
-    pinnedPosition: null,
-  }).then((post) => {
+const post = postSchema.create({
+  _id: '8e76460f-840b-42da-968e-ad66c076ff7c',
+  title: 'Hoatzins are great!',
+  description: 'We should really talk about how great hoatzins are!',
+  rating: 5,
+  hidden: true,
+  interactions: {
+    "5083c0e2-8cf7-4be3-ae1e-68b7147981f4": {
+      interactionType: 'rating',
+      body: 5
+    }
+  },
+  tags: [],
+  pinnedPosition: null,
+})
+
+console.log(post)
+const updatedPost = postSchema.update(
+  post,
+  p => {
+    p.tags.push('animals')
+  },
+  { log: false } // for Model#update, Model#findOneAndUpdate, Model#delete, Model#findOneAndDelete and Model#create, there is an optional "options" object with a log property. If it is set, it overrides the setting set when the model is created for the call
+)
+
+  console.log(updatedPost)
+  const goodRatedPosts = postSchema.find(p => p.rating >= 4)
+  console.log(goodRatedPosts)
   
-    console.log(post)
-    postSchema.update(
-      post,
-      p => {
-        p.tags.push('animals')
-      },
-  	{ log: false } // for Model#update, Model#findOneAndUpdate, Model#delete, Model#findOneAndDelete and Model#create, there is an optional "options" object with a log property. If it is set, it overrides the setting set when the model is created for the call
-    ).then((updatedPost) => {
-    
-	  console.log(updatedPost)
-       
-	  postSchema.find(p => p.rating >= 4)
-	  .then((goodRatedPosts) => console.log(goodRatedPosts))
-      
-      postSchema.delete(updatedPost)
-      
-      postSchema.findOne(p => p.title.includes('Hoatzin')) // The post got deleted in the line above. It is asynchronous so it might not actually be deleted yet, but if it is, this will throw an error that needs to be caught
-	  .then((nonExistentPost) => console.log(nonExistentPost))
-	  .catch((error) => console.error(error)) 
-    
-	});
-  });
+  postSchema.delete(updatedPost)
+  
+  try {
+
+    const nonExistentPost = postSchema.findOne(p => p.title.includes('Hoatzin')) // The post got deleted in the line above. It is asynchronous so it might not actually be deleted yet, but if it is, this will throw an error that needs to be caught
+	console.log(nonExistentPost)
+  }
+  catch(error) {
+
+	console.error(error)
+  }
 ```
