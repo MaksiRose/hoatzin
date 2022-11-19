@@ -86,9 +86,7 @@ export class Model<T extends IDObject> {
 	find: (filter?: (value: T) => boolean) => Array<T>;
 	findOne: (filter: (value: T) => boolean) => T;
 	create: (dataObject: T, options?: { log?: boolean; }) => T;
-	delete: (dataObject: T, options?: { log?: boolean; }) => void;
 	findOneAndDelete: (filter: (value: T) => boolean, options?: { log?: boolean; }) => void;
-	update: (dataObject: T, updateFunction: (value: T) => void, options?: { log?: boolean; }) => T;
 	findOneAndUpdate: (filter: (value: T) => boolean, updateFunction: (value: T) => void, options?: { log?: boolean; }) => T;
 
 	/**
@@ -186,37 +184,28 @@ export class Model<T extends IDObject> {
 			return dataObject;
 		};
 
-		/** Deletes the given object based on its id. */
-		this.delete = async (
-			dataObject: T,
+		/** Searches for an object that meets the filter, and deletes it. If several objects meet the requirement, the first that is found is deleted. */
+		this.findOneAndDelete = (
+			filter: (value: T) => boolean,
 			options: { log?: boolean; } = {},
-		): Promise<void> => {
+		): void => {
+
+			const dataObject = this.findOne(filter);
 
 			unlinkSync(`${path}/${dataObject._id}.json`);
 
 			if (options.log === undefined ? log.deleteFile : options.log) { console.log('Deleted File: ', dataObject._id); }
-
 			return;
 		};
 
-		/** Searches for an object that meets the filter, and deletes it. If several objects meet the requirement, the first that is found is deleted. */
-		this.findOneAndDelete = async (
+		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
+		this.findOneAndUpdate = (
 			filter: (value: T) => boolean,
-			options: { log?: boolean; } = {},
-		): Promise<void> => {
-
-			const dataObject = await this.findOne(filter);
-			await (this.delete(dataObject, options));
-			return;
-		};
-
-		/** Updates the given object based on its id. */
-		this.update = (
-			dataObject: T,
 			updateFunction: (value: T) => void,
 			options: { log?: boolean; } = {},
 		): T => {
 
+			const dataObject = this.findOne(filter);
 			const newDataObject = JSON.parse(JSON.stringify(dataObject)) as T;
 			updateFunction(newDataObject);
 
@@ -319,17 +308,6 @@ export class Model<T extends IDObject> {
 					console.log(`\x1b[32m${dataObject?._id}\x1b[0m${path} changed from \x1b[33m${oldValue} \x1b[0mto \x1b[33m${newValue} \x1b[0mat \x1b[3m${new Date().toLocaleString()} \x1b[0m`);
 				}
 			}
-		};
-
-		/** Searches for an object that meets the filter, and updates it. If several objects meet the requirement, the first that is found is updated. */
-		this.findOneAndUpdate = (
-			filter: (value: T) => boolean,
-			updateFunction: (value: T) => void,
-			options: { log?: boolean; } = {},
-		): T => {
-
-			const dataObject = this.findOne(filter);
-			return this.update(dataObject, updateFunction, options);
 		};
 
 

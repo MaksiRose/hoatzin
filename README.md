@@ -86,8 +86,8 @@ const post = postSchema.create({
 })
 
 console.log(post)
-const updatedPost = postSchema.update(
-  post,
+const updatedPost = postSchema.findOneAndUpdate(
+  p => p._id === post._id,
   p => {
     p.tags.push('animals')
   },
